@@ -62,6 +62,7 @@ class App {
     #map;
     #mapEvent;
     #workouts = [];
+    zoom = 13;
 
     constructor() {
         this._getPosition();
@@ -69,6 +70,8 @@ class App {
         form.addEventListener('submit', this._newWorkout.bind(this));
         // hide form on submit and clear
         inputType.addEventListener('change', this._toggleElevationField);
+        // click on workouts
+        containerWorkouts.addEventListener('click', this._moveToWorkout.bind(this));
     }
 
     _getPosition() {
@@ -87,7 +90,7 @@ class App {
         const coordinates = [latitude, longitude];
 
         // leaflet library function
-        this.#map = L.map('map').setView(coordinates, 13);
+        this.#map = L.map('map').setView(coordinates, this.zoom);
         
         L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
             attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
@@ -98,17 +101,20 @@ class App {
             accessToken: 'pk.eyJ1IjoiYW5pc2g3MDEwIiwiYSI6ImNremlzNzJrdTByZ3MybnFreXV2MXUyY3MifQ.-iyJkmvvh0zKyS6e0DjEAQ'
         }).addTo(this.#map);
 
-        L.marker(coordinates).addTo(this.#map).bindPopup(
+        L.marker(coordinates, {opacity : 0.5}).addTo(this.#map).bindPopup(
             L.popup({ 
                 autoClose: false,
                 maxWidth: 250,
-                minWidth: 100
+                minWidth: 100,
+                closeButton: false
             })
             .setContent('You are here right now'))
             .openPopup();
         
         // on click inside the map
         this.#map.on('click', this._showForm.bind(this));
+        // getting workout data from local storage
+        this._getLocalStorageData();
     }
 
     // showing the form whenever a click is registered on the map
@@ -165,6 +171,7 @@ class App {
         this._renderWorkout(workout);
         this._renderWorkoutList(workout);
         this._hideForm();
+        this._updateLocalStorage();
     }
 
     _hideForm() {
@@ -180,7 +187,8 @@ class App {
                 closeOnClick: false,
                 className: `${workout.type}-popup`,
                 maxWidth: 250,
-                minWidth: 100
+                minWidth: 100,
+                closeButton: false
             }))
             .setPopupContent(`${workout.description}`)
             .openPopup();
@@ -233,6 +241,36 @@ class App {
         }
         // adding final html to the workouts container
         containerWorkouts.insertAdjacentHTML('beforeend', html);
+    }
+
+    _moveToWorkout(event) {
+        const workout = event.target.closest('.workout');
+
+        // if the click was outside the workout
+        if (!workout) return;
+
+        // get workout from the object move to map if workout exists
+        const workoutObject = this.#workouts.find(w => w.id === workout.dataset.id);
+        
+        if (!workoutObject) return;
+
+        this.#map.setView(workoutObject.coords, this.zoom, {
+            animate: true,
+            duration: 1
+        });
+    }
+
+    _updateLocalStorage() {
+        localStorage.setItem("workout", JSON.stringify(this.#workouts));
+    }
+
+    _getLocalStorageData() {
+        const workoutData = JSON.parse(localStorage.getItem("workout"));
+        workoutData.forEach(workout => {
+            this.#workouts.push(workout);
+            this._renderWorkout(workout);
+            this._renderWorkoutList(workout);
+        });
     }
 }
     
